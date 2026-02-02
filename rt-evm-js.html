@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eulerian Video Magnification</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🔬</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 20px 0 20px;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr 450px;
+            gap: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .video-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .video-wrapper {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 640px;
+        }
+        
+        video, canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .video-label {
+            margin-top: 10px;
+            font-weight: 600;
+            color: #555;
+            text-align: center;
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95em;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #764ba2;
+            transform: scale(1.1);
+        }
+        
+        .value-display {
+            min-width: 60px;
+            text-align: right;
+            font-weight: 600;
+            color: #667eea;
+            font-size: 0.9em;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .button-group button {
+            flex: 1 1 auto;
+            min-width: 160px;
+        }
+
+        @media (max-width: 768px) {
+            .button-group button {
+                flex: 1 1 calc(50% - 5px);
+                min-width: 140px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .button-group button {
+                width: 100%;
+                min-width: unset;
+            }
+        }
+
+        .preset-btn {
+            padding: 8px 12px;
+            font-size: 0.85em;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            width: 100%;
+            text-align: left;
+        }
+
+        .preset-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .preset-btn:active {
+            transform: translateX(3px);
+        }
+
+        .preset-values {
+            font-size: 0.75em;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+        
+        button {
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        #startBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        #stopBtn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        #recordBtn.recording {
+            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            color: #1976d2;
+        }
+        
+        .status.loading {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .debug-panel {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 200px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        
+        .debug-panel .timestamp {
+            color: #81d4fa;
+            margin-right: 8px;
+        }
+        
+        .debug-panel .error {
+            color: #ef5350;
+        }
+        
+        .debug-panel .warning {
+            color: #ffb74d;
+        }
+        
+        .debug-panel .info {
+            color: #aed581;
+        }
+        
+        .performance-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            color: white;
+        }
+        
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+        
+        .info-box {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        
+        .info-box ul {
+            margin-left: 20px;
+            color: #555;
+            font-size: 0.9em;
+            line-height: 1.8;
+        }
+        
+        @media (max-width: 1400px) {
+            .main-content {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .controls {
+                grid-column: 1 / -1;
+            }
+        }
+        
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        table {
+            font-family: inherit;
+        }
+        
+        code {
+            font-family: 'Courier New', monospace;
+        }
+
+        .collapsible-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .collapsible-header:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .collapsible-header .arrow {
+            transition: transform 0.3s;
+            font-size: 1.2em;
+        }
+
+        .collapsible-header.active .arrow {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.active {
+            max-height: 600px;
+            transition: max-height 0.5s ease-in;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 Eulerian Video Magnification</h1>
+        <div class="subtitle">Amplification of imperceptible movements through Computer Vision</div>
+        
+        <div id="status" class="status loading">Loading OpenCV.js...</div>
+        
+        <div class="performance-stats">
+            <div class="stat-card">
+                <div class="stat-value" id="fpsValue">0</div>
+                <div class="stat-label">FPS</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="processTimeValue">0</div>
+                <div class="stat-label">Process Time (ms)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="bufferSizeValue">0</div>
+                <div class="stat-label">Frame Buffer</div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="video-section">
+                <div class="video-wrapper">
+                    <video id="videoInput" autoplay playsinline></video>
+                </div>
+                <div class="video-label">📹 Original Video</div>
+            </div>
+            
+            <div class="video-section">
+                <div class="video-wrapper">
+                    <canvas id="canvasOutput"></canvas>
+                </div>
+                <div class="video-label">✨ Magnified Video</div>
+            </div>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>Amplification Factor (alpha): <span class="value-display" id="alphaValue">20</span></label>
+                    <div class="control-row">
+                        <input type="range" id="alphaSlider" min="1" max="500" value="20" step="1">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Minimum Frequency (Hz): <span class="value-display" id="freqMinValue">1.0</span></label>
+                    <div class="control-row">
+                        <input type="range" id="freqMinSlider" min="0.05" max="60" value="1.0" step="0.05">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Maximum Frequency (Hz): <span class="value-display" id="freqMaxValue">5.0</span></label>
+                    <div class="control-row">
+                        <input type="range" id="freqMaxSlider" min="0.1" max="60" value="5.0" step="0.1">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Pyramid Levels: <span class="value-display" id="pyramidLevelsValue">3</span></label>
+                    <div class="control-row">
+                        <input type="range" id="pyramidLevelsSlider" min="2" max="5" value="3" step="1">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Temporal Buffer Length: <span class="value-display" id="bufferLengthValue">30</span></label>
+                    <div class="control-row">
+                        <input type="range" id="bufferLengthSlider" min="15" max="60" value="30" step="5">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Output Exposure: <span class="value-display" id="exposureValue">0.4</span></label>
+                    <div class="control-row">
+                        <input type="range" id="exposureSlider" min="0.1" max="3" value="0.4" step="0.1">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Noise Reduction (Extract): <span class="value-display" id="blurValue">0</span></label>
+                    <div class="control-row">
+                        <input type="range" id="blurSlider" min="0" max="15" value="0" step="2">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Attenuation Threshold: <span class="value-display" id="attenuationValue">0.1</span></label>
+                    <div class="control-row">
+                        <input type="range" id="attenuationSlider" min="0" max="1" value="0.1" step="0.05">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="startBtn" disabled>Start Processing</button>
+            <button id="stopBtn" disabled>Stop</button>
+            <button id="switchCameraBtn" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">🔄 Back Camera</button>
+            <button id="recordBtn" disabled style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">🔴 Record Output</button>
+            <button id="downloadBtn" disabled style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">💾 Download Video</button>
+        </div>
+        
+        <div class="control-group" style="margin-top: 15px;">
+            <label>Or upload a video:</label>
+            <input type="file" id="videoFile" accept="video/*" style="width: 100%;">
+        </div>
+
+        <div class="info-box" style="margin-top: 15px;">
+            <h3>📊 Theoretical Limits (based on FPS)</h3>
+            <div style="font-size: 0.85em; line-height: 1.8;">
+                <div><strong>Current FPS:</strong> <span id="currentFpsInfo" style="color: #667eea;">30</span> fps</div>
+                <div><strong>Nyquist Freq.:</strong> <span id="nyquistFreq" style="color: #667eea;">15.0</span> Hz (theoretical maximum)</div>
+                <div><strong>Recommended Max Freq.:</strong> <span id="maxFreqRecommended" style="color: #2e7d32;">12.0</span> Hz (80% Nyquist)</div>
+                <div><strong>Recommended Min Freq.:</strong> <span id="minFreqRecommended" style="color: #f57c00;">0.15</span> Hz (with current buffer)</div>
+            </div>
+        </div>
+        
+        <div class="info-box" style="margin-top: 15px;">
+            <button class="collapsible-header" onclick="togglePresets()">
+                <span>🎯 Common Frequencies - Quick Presets</span>
+                <span class="arrow">▼</span>
+            </button>
+            <div id="presetsContent" class="collapsible-content">
+                <div style="display: grid; gap: 8px; padding-top: 10px;">
+                <button class="preset-btn" onclick="applyPreset(0.1, 0.4, 30, 'Slow breathing')">
+                    <div>💤 Slow breathing</div>
+                    <div class="preset-values">0.15-0.3 Hz | Alpha: 30 | 9-18 breaths/min</div>
+                </button>
+                
+                <button class="preset-btn" onclick="applyPreset(0.2, 0.6, 40, 'Normal breathing')">
+                    <div>🫁 Normal breathing</div>
+                    <div class="preset-values">0.2-0.5 Hz | Alpha: 40 | 12-30 breaths/min</div>
+                </button>
+                
+                <button class="preset-btn" onclick="applyPreset(0.7, 1.7, 50, 'Heart rate (resting)')">
+                    <div>❤️ Heart rate (resting)</div>
+                    <div class="preset-values">0.8-1.5 Hz | Alpha: 50 | 48-90 bpm</div>
+                </button>
+                
+                <button class="preset-btn" onclick="applyPreset(1.3, 3.5, 60, 'Heart rate (exercise)')">
+                    <div>🏃 Heart rate (exercise)</div>
+                    <div class="preset-values">1.5-3.0 Hz | Alpha: 60 | 90-180 bpm</div>
+                </button>
+                
+                <button class="preset-btn" onclick="applyPreset(3, 15, 80, 'Hand tremor')">
+                    <div>🤲 Hand tremor</div>
+                    <div class="preset-values">4-12 Hz | Alpha: 80 | Physiological tremor</div>
+                </button>
+                
+                <button class="preset-btn" onclick="applyPreset(8, 25, 100, 'Motor vibrations')">
+                    <div>⚙️ Motor vibrations</div>
+                    <div class="preset-values">10-30 Hz | Alpha: 100 | Mechanical vibrations</div>
+                </button>
+                
+                <button class="preset-btn" onclick="applyPreset(0.5, 2.0, 20, 'Reset Default')">
+                    <div>🔄 Reset Default</div>
+                    <div class="preset-values">0.5-2.0 Hz | Alpha: 20 | Initial settings</div>
+                </button>
+            </div>
+            
+            <div style="margin-top: 12px; padding: 10px; background: #e3f2fd; border-radius: 5px; font-size: 0.85em;">
+                <strong>💡 Tip:</strong> Click on a preset to automatically apply optimal parameters. You can then fine-tune the sliders to perfect the result.
+            </div>
+        </div>
+        </div>
+
+        
+        <div class="info-box">
+            <h3>ℹ️ How to use:</h3>
+            <ul>
+                <li><strong>Alpha:</strong> Controls the amplification intensity (higher = more amplification)</li>
+                <li><strong>Frequencies:</strong> Determines which movements to amplify (e.g., heart rate: 0.8-2.0 Hz)</li>
+                <li><strong>Pyramid Levels:</strong> More levels = greater detail but slower</li>
+                <li><strong>Temporal Buffer:</strong> How many frames to use for temporal filtering</li>
+            </ul>
+        </div>
+        
+        <div class="control-group" style="margin-top: 20px;">
+            <label>Debug Log:</label>
+            <div id="debugPanel" class="debug-panel"></div>
+        </div>
+    </div>
+    </div>
+    
+    <script>
+        // ============================================
+        // GLOBAL VARIABLES AND CONFIGURATION
+        // ============================================
+        
+        let isProcessing = false;
+        let stream = null;
+        let frameCount = 0;
+        let lastFrameTime = Date.now();
+        let fps = 0;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isRecording = false;
+        let currentFacingMode = 'user'; // 'user' = front camera, 'environment' = back camera
+
+        // Buffer to store temporal pyramids for each level
+        let pyramidBuffer = [];
+        
+        // Parameter configuration (modifiable via UI)
+        let config = {
+            alpha: 20,              // Amplification factor
+            freqMin: 1.0,           // Minimum frequency (Hz)
+            freqMax: 5.0,           // Maximum frequency (Hz)
+            pyramidLevels: 3,       // Number of Gaussian pyramid levels
+            bufferLength: 30,       // Number of frames in temporal buffer
+            exposure: 0.4,          // Output exposure control
+            downsampleWidth: 480,   // Improved resolution
+            downsampleHeight: 360,
+            exposure: 0.4,
+            blurSize: 0,            // Gaussian blur kernel (must be odd)
+            attenuationThreshold: 0.1  // Threshold to attenuate small variations (noise)
+        };
+        
+        // DOM references
+        const video = document.getElementById('videoInput');
+        const canvas = document.getElementById('canvasOutput');
+        const ctx = canvas.getContext('2d');
+        const statusDiv = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const debugPanel = document.getElementById('debugPanel');
+        const recordBtn = document.getElementById('recordBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const switchCameraBtn = document.getElementById('switchCameraBtn');
+        
+        // ============================================
+        // DEBUG AND LOGGING FUNCTIONS
+        // ============================================
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> <span class="${type}">${message}</span>`;
+            debugPanel.appendChild(logEntry);
+            debugPanel.scrollTop = debugPanel.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        function updateStats(processTime) {
+            // Calculate FPS
+            const now = Date.now();
+            const delta = (now - lastFrameTime) / 1000;
+            fps = Math.round(1 / delta);
+            lastFrameTime = now;
+            
+            // Update UI
+            document.getElementById('fpsValue').textContent = fps;
+            document.getElementById('processTimeValue').textContent = Math.round(processTime);
+            document.getElementById('bufferSizeValue').textContent = pyramidBuffer.length > 0 ? pyramidBuffer[0].length : 0;
+            
+            // Update frequency limits every 30 frames
+            if (frameCount % 30 === 0) {
+                updateFrequencyLimits();
+            }
+        }
+        
+        // ============================================
+        // OPENCV INITIALIZATION
+        // ============================================
+        
+        function onOpenCvReady() {
+            log('OpenCV.js loaded successfully', 'info');
+            updateStatus('OpenCV.js ready! Click "Start" to begin', 'success');
+            startBtn.disabled = false;
+        }
+        
+        // ============================================
+        // CALCULATE FREQUENCY LIMITS BASED ON FPS
+        // ============================================
+        
+        function updateFrequencyLimits() {
+            const currentFps = fps > 0 ? fps : 30; // Default 30 if not yet calculated
+            const nyquistFreq = currentFps / 2;
+            const minFreqTheoretical = currentFps / config.bufferLength;
+            
+            // Practical limits (with safety margin)
+            const maxFreqPractical = nyquistFreq * 0.8; // 80% of Nyquist to avoid aliasing
+            const minFreqPractical = minFreqTheoretical * 1.5; // 1.5x to have sufficient data
+            
+            // Update info display
+            document.getElementById('nyquistFreq').textContent = nyquistFreq.toFixed(2);
+            document.getElementById('maxFreqRecommended').textContent = maxFreqPractical.toFixed(2);
+            document.getElementById('minFreqRecommended').textContent = minFreqPractical.toFixed(2);
+            document.getElementById('currentFpsInfo').textContent = currentFps.toFixed(1);
+            
+            // Warning if settings out of range
+            if (config.freqMax > maxFreqPractical) {
+                log(`⚠️ Warning: Max Freq (${config.freqMax} Hz) exceeds recommended limit (${maxFreqPractical.toFixed(2)} Hz) - aliasing risk`, 'warning');
+            }
+            
+            if (config.freqMin < minFreqPractical) {
+                log(`⚠️ Warning: Min Freq (${config.freqMin} Hz) below recommended limit (${minFreqPractical.toFixed(2)} Hz) - longer buffer needed`, 'warning');
+            }
+        }
+
+        // ============================================
+        // PRESET MANAGEMENT
+        // ============================================
+
+        function applyPreset(freqMin, freqMax, alpha, presetName) {
+            // Update config
+            config.freqMin = freqMin;
+            config.freqMax = freqMax;
+            config.alpha = alpha;
+            
+            // Update sliders and display
+            document.getElementById('freqMinSlider').value = freqMin;
+            document.getElementById('freqMinValue').textContent = freqMin.toFixed(1);
+            
+            document.getElementById('freqMaxSlider').value = freqMax;
+            document.getElementById('freqMaxValue').textContent = freqMax.toFixed(1);
+            
+            document.getElementById('alphaSlider').value = alpha;
+            document.getElementById('alphaValue').textContent = alpha;
+            
+            log(`✅ Preset applied: ${presetName} (Min: ${freqMin} Hz, Max: ${freqMax} Hz, Alpha: ${alpha})`, 'info');
+            updateStatus(`Preset "${presetName}" applied`, 'success');
+            
+            // Update limits if processing is active
+            if (isProcessing && frameCount > 0) {
+                updateFrequencyLimits();
+            }
+        }
+
+        function togglePresets() {
+            const content = document.getElementById('presetsContent');
+            const header = event.currentTarget;
+            
+            content.classList.toggle('active');
+            header.classList.toggle('active');
+            
+            if (content.classList.contains('active')) {
+                log('Preset menu opened', 'info');
+            } else {
+                log('Preset menu closed', 'info');
+            }
+        }
+        
+        // ============================================
+        // VIDEO RECORDING FUNCTIONS
+        // ============================================
+        
+        function startRecording() {
+            try {
+                recordedChunks = [];
+                
+                // Use canvas as source for MediaRecorder
+                const canvasStream = canvas.captureStream(30); // 30 fps
+                
+                const options = {
+                    mimeType: 'video/webm;codecs=vp9',
+                    videoBitsPerSecond: 2500000 // 2.5 Mbps
+                };
+                
+                // Fallback if VP9 not supported
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options.mimeType = 'video/webm;codecs=vp8';
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options.mimeType = 'video/webm';
+                    }
+                }
+                
+                mediaRecorder = new MediaRecorder(canvasStream, options);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    log('Recording completed', 'success');
+                    downloadBtn.disabled = false;
+                };
+                
+                mediaRecorder.start(100); // Collect data every 100ms
+                isRecording = true;
+                
+                recordBtn.textContent = '⏹️ Stop Recording';
+                recordBtn.classList.add('recording');
+                
+                log(`Recording started (${options.mimeType})`, 'success');
+                updateStatus('🔴 Recording in progress...', 'success');
+                
+            } catch (err) {
+                log(`Recording start error: ${err.message}`, 'error');
+                alert('Error starting recording');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                recordBtn.textContent = '🔴 Record Output';
+                recordBtn.classList.remove('recording');
+                
+                updateStatus('Recording stopped. Click "Download Video"', 'info');
+            }
+        }
+        
+        function downloadVideo() {
+            if (recordedChunks.length === 0) {
+                alert('No video to download!');
+                return;
+            }
+            
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            a.href = url;
+            a.download = `eulerian_magnified_${timestamp}.webm`;
+            
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            log(`Video downloaded: ${a.download}`, 'success');
+            updateStatus('Video downloaded successfully!', 'success');
+        }
+        
+        // ============================================
+        // WEBCAM MANAGEMENT
+        // ============================================
+        
+        async function startWebcam() {
+            // If there's already a video loaded from file, skip webcam
+            if (video.src && !video.srcObject) {
+                log('Using video loaded from file', 'info');
+                video.play();
+                canvas.width = config.downsampleWidth;
+                canvas.height = config.downsampleHeight;
+                return true;
+            }
+            
+            try {
+                log(`Requesting webcam access (${currentFacingMode === 'user' ? 'front' : 'back'})...`, 'info');
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: currentFacingMode,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        frameRate: { ideal: 30 }
+                    }
+                });
+                
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    // Maintain input aspect ratio
+                    const aspectRatio = video.videoWidth / video.videoHeight;
+                    canvas.width = config.downsampleWidth;
+                    canvas.height = Math.round(config.downsampleWidth / aspectRatio);
+                    log(`Webcam activated: ${video.videoWidth}x${video.videoHeight}`, 'success');
+                    log(`Canvas output: ${canvas.width}x${canvas.height}`, 'info');
+                };
+                
+                return true;
+            } catch (err) {
+                log(`Webcam access error: ${err.message}`, 'error');
+                updateStatus('Error: unable to access webcam', 'error');
+                return false;
+            }
+        }
+        
+        function stopWebcam() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                log('Webcam stopped', 'info');
+            }
+        }
+
+        async function switchCamera() {
+            // Change facing mode
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            
+            log(`Switching to ${currentFacingMode === 'user' ? 'front' : 'back'} camera`, 'info');
+            
+            // If webcam is already active, restart with new camera
+            if (stream) {
+                const wasProcessing = isProcessing;
+                
+                // Stop everything
+                if (isProcessing) {
+                    isProcessing = false;
+                }
+                
+                stopWebcam();
+                
+                // Restart with new camera
+                if (await startWebcam()) {
+                    if (wasProcessing) {
+                        isProcessing = true;
+                        setTimeout(() => {
+                            processVideo();
+                        }, 500);
+                    }
+                    updateStatus(`${currentFacingMode === 'user' ? 'Front' : 'Back'} camera activated`, 'success');
+                }
+            } else {
+                updateStatus(`Next camera: ${currentFacingMode === 'user' ? 'front' : 'back'}`, 'info');
+            }
+        }
+        
+        // ============================================
+        // EULERIAN VIDEO MAGNIFICATION ALGORITHM
+        // ============================================
+        
+        /**
+        * Builds a Gaussian pyramid
+        * @param {cv.Mat} src - Source image
+        * @param {number} levels - Number of pyramid levels
+        * @returns {Array<cv.Mat>} - Array of matrices for each level
+        */
+        function buildGaussianPyramid(src, levels) {
+            const pyramid = [src.clone()];
+            let current = src.clone();
+            
+            for (let i = 1; i < levels; i++) {
+                const down = new cv.Mat();
+                cv.pyrDown(current, down);
+                pyramid.push(down);
+                current.delete();
+                current = down.clone();
+            }
+            
+            current.delete();
+            return pyramid;
+        }
+        
+        /**
+        * Reconstructs an image from a Laplacian pyramid
+        * @param {Array<cv.Mat>} pyramid - Laplacian pyramid
+        * @returns {cv.Mat} - Reconstructed image
+        */
+        function reconstructFromPyramid(pyramid) {
+            let current = pyramid[pyramid.length - 1].clone();
+            
+            for (let i = pyramid.length - 2; i >= 0; i--) {
+                const up = new cv.Mat();
+                cv.pyrUp(current, up, pyramid[i].size());
+                cv.add(up, pyramid[i], current);
+                up.delete();
+            }
+            
+            return current;
+        }
+            
+        /**
+        * Applies an ideal temporal bandpass filter
+        * @param {Array<Array<cv.Mat>>} buffer - Buffer of temporal pyramids
+        * @param {number} fps - Current frame rate
+        * @returns {Array<cv.Mat>} - Filtered pyramid
+        */
+
+        function temporalBandpassFilter(buffer, fps) {
+            // Need at least 2 frames to filter in time, otherwise it doesn't make sense
+            if (buffer.length === 0 || buffer[0].length < 2) {
+                return null;
+            }
+            
+            const numLevels = buffer.length;
+            const bufferLen = buffer[0].length;
+            const filtered = [];
+            
+            // Filter parameters
+            const freqMin = config.freqMin;
+            const freqMax = config.freqMax;
+            const dt = 1.0 / fps; // Sampling period
+            
+            // Calculate first-order Butterworth filter weights (simplified)
+            const lowCutoff = 2.0 * Math.PI * freqMin;
+            const highCutoff = 2.0 * Math.PI * freqMax;
+            
+            // First iterate over each pyramid level
+            for (let level = 0; level < numLevels; level++) {
+                const levelBuffer = buffer[level];
+                
+                // Bandpass filter implementation as difference of high-pass - low-pass
+
+
+                // Low-pass with high cutoff (keeps up to freqMax)
+                let lowpassHigh = new cv.Mat.zeros(levelBuffer[0].rows, levelBuffer[0].cols, levelBuffer[0].type());
+                const alphaHigh = dt * highCutoff / (1 + dt * highCutoff); // Smoothing coefficient
+                
+                for (let i = 0; i < levelBuffer.length; i++) {
+                    const temp = new cv.Mat();
+                    cv.addWeighted(lowpassHigh, 1 - alphaHigh, levelBuffer[i], alphaHigh, 0, temp); // lowpassHigh = (1 - alpha) * lowpassHigh + alpha * currentFrame
+                    lowpassHigh.delete();
+                    lowpassHigh = temp;
+                }
+                
+                // Low-pass with low cutoff (keeps up to freqMin)
+                let lowpassLow = new cv.Mat.zeros(levelBuffer[0].rows, levelBuffer[0].cols, levelBuffer[0].type());
+                const alphaLow = dt * lowCutoff / (1 + dt * lowCutoff);
+                
+                for (let i = 0; i < levelBuffer.length; i++) {
+                    const temp = new cv.Mat();
+                    cv.addWeighted(lowpassLow, 1 - alphaLow, levelBuffer[i], alphaLow, 0, temp);
+                    lowpassLow.delete();
+                    lowpassLow = temp;
+                }
+                
+                // Bandpass = low-pass(high) - low-pass(low)
+                const bandpass = new cv.Mat();
+                cv.subtract(lowpassHigh, lowpassLow, bandpass);
+                
+                filtered.push(bandpass);
+                
+                lowpassHigh.delete();
+                lowpassLow.delete();
+            }
+            
+            return filtered;
+        }
+                        
+        /**
+        * Main Eulerian Video Magnification process
+        * @param {cv.Mat} frame - Current frame
+        */
+        function processFrame(frame) {
+            const startTime = performance.now();
+            
+            try {
+                // 1. Apply Gaussian blur to reduce noise
+                const blurred = new cv.Mat();
+                if (config.blurSize > 0) {
+                    const ksize = new cv.Size(config.blurSize, config.blurSize);
+                    cv.GaussianBlur(frame, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
+                } else {
+                    frame.copyTo(blurred);
+                }
+                
+                // 2. Convert to YUV to separate luminance (motion) from chrominance (color)
+                const yuv = new cv.Mat();
+                cv.cvtColor(blurred, yuv, cv.COLOR_RGB2YUV);
+                blurred.delete();
+                
+                // 3. Extract only Y channel (luminance)
+                const channels = new cv.MatVector();
+                cv.split(yuv, channels);
+                const yChannel = channels.get(0); // Only luminance
+                
+                // 4. Convert to float and normalize
+                const floatFrame = new cv.Mat();
+                yChannel.convertTo(floatFrame, cv.CV_32F, 1.0 / 255.0);
+                
+                // Save original U and V channels to reconstruct color later
+                const uChannel = channels.get(1);
+                const vChannel = channels.get(2);
+                
+                // 2. Build Gaussian pyramid
+                const pyramid = buildGaussianPyramid(floatFrame, config.pyramidLevels);
+                
+                // 3. Add pyramid to temporal buffer
+                // 3.1 Initialize buffer if empty
+                if (pyramidBuffer.length === 0) {
+                    // Initialize buffer for each level
+                    for (let i = 0; i < config.pyramidLevels; i++) {
+                        pyramidBuffer.push([]);
+                    }
+                }
+                
+                // Add current frame to each level's buffer - level by level
+                for (let i = 0; i < config.pyramidLevels; i++) {
+                    pyramidBuffer[i].push(pyramid[i].clone());
+                    
+                    // Keep buffer at configured length - remove oldest if necessary (DAMN THE MEMORY)
+                    if (pyramidBuffer[i].length > config.bufferLength) {
+                        const old = pyramidBuffer[i].shift();
+                        old.delete();
+                    }
+                }
+                
+                // 4. Apply temporal filter if we have enough frames
+                if (pyramidBuffer[0].length >= 10) {
+                    const filtered = temporalBandpassFilter(pyramidBuffer, fps);
+                    
+                    if (filtered) {
+                        // 5. Amplify with simple noise attenuation - level by level
+                        const amplified = [];
+                        for (let i = 0; i < filtered.length; i++) {
+                            const amp = new cv.Mat();
+                            
+                            // Apply blur to filtered variations to reduce high-frequency noise
+                            if (config.attenuationThreshold > 0) {
+                                const smoothed = new cv.Mat();
+                                const ksize = new cv.Size(3, 3);
+                                cv.GaussianBlur(filtered[i], smoothed, ksize, 0);
+                                smoothed.convertTo(amp, smoothed.type(), config.alpha);
+                                smoothed.delete();
+                            } else {
+                                filtered[i].convertTo(amp, filtered[i].type(), config.alpha);
+                            }
+                            
+                            amplified.push(amp);
+                            filtered[i].delete();
+                        }
+                        
+                        // 6. Add amplified components to original pyramid - level by level
+                        const enhanced = [];
+                        for (let i = 0; i < pyramid.length; i++) {
+                            const enh = new cv.Mat();
+                            cv.add(pyramid[i], amplified[i], enh);
+                            enhanced.push(enh);
+                            amplified[i].delete();
+                        }
+                        
+                        // 7. Reconstruct only amplified Y channel
+                        const resultY = reconstructFromPyramid(enhanced);
+                        
+                        // 8. Convert to 8-bit
+                        const yOut = new cv.Mat();
+                        resultY.convertTo(yOut, cv.CV_8U, 255.0 * config.exposure);
+                        cv.threshold(yOut, yOut, 255, 255, cv.THRESH_TRUNC);
+                        
+                        // 9. Resize U and V to original channels if necessary
+                        const uResized = new cv.Mat();
+                        const vResized = new cv.Mat();
+                        cv.resize(uChannel, uResized, yOut.size());
+                        //cv.resize(vChannel, vResized, vOut.size());
+                        cv.resize(vChannel, vResized, yOut.size()); // Not vOut.size()!
+                        
+                        // 10. Recombine amplified Y with original U,V
+                        const mergedChannels = new cv.MatVector();
+                        mergedChannels.push_back(yOut);
+                        mergedChannels.push_back(uResized);
+                        mergedChannels.push_back(vResized);
+                        
+                        // Merge everything into a single YUV image
+                        const yuvOut = new cv.Mat();
+                        cv.merge(mergedChannels, yuvOut);
+                        
+                        // 11. Convert from YUV to RGB for display
+                        const display = new cv.Mat();
+                        cv.cvtColor(yuvOut, display, cv.COLOR_YUV2RGB);
+                        cv.imshow('canvasOutput', display);
+                        
+                        // Cleanup - TODO: improve memory management, maybe don't need to delete everything every frame?
+                        for (let mat of enhanced) mat.delete();
+                        resultY.delete();
+                        yOut.delete();
+                        uResized.delete();
+                        vResized.delete();
+                        mergedChannels.delete();
+                        yuvOut.delete();
+                        display.delete();
+                        uChannel.delete();
+                        vChannel.delete();
+                        channels.delete();
+                        yuv.delete();
+                    } else {
+                        // If we can't filter, show original
+                        cv.imshow('canvasOutput', frame);
+                    }
+                } else {
+                    // Still in buffering phase, show original
+                    cv.imshow('canvasOutput', frame);
+                }
+                
+                // Cleanup current pyramid - no longer needed
+                for (let mat of pyramid) mat.delete();
+                floatFrame.delete();
+                
+                // Update statistics
+                const processTime = performance.now() - startTime;
+                updateStats(processTime);
+                
+            } catch (err) {
+                log(`Processing error: ${err.message}`, 'error');
+                console.error(err);
+            }
+        }
+                        
+        // ============================================
+        // MAIN PROCESSING LOOP
+        // ============================================
+        
+        function processVideo() {
+            if (!isProcessing) return;
+            
+            try {
+                // Read frame from video
+                //const src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+                //const cap = new cv.VideoCapture(video);
+                //cap.read(src);
+                
+                // Read frame from video using canvas as intermediary
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = video.videoWidth;
+                tempCanvas.height = video.videoHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(video, 0, 0);
+                
+                const src = cv.imread(tempCanvas);
+                
+                // Resize for performance
+                //const small = new cv.Mat();
+                //const dsize = new cv.Size(config.downsampleWidth, config.downsampleHeight);
+                //cv.resize(src, small, dsize, 0, 0, cv.INTER_LINEAR);
+                
+                // Resize for performance maintaining aspect ratio
+                const small = new cv.Mat();
+                const aspectRatio = src.cols / src.rows;
+                const targetHeight = Math.round(config.downsampleWidth / aspectRatio);
+                const dsize = new cv.Size(config.downsampleWidth, targetHeight);
+                cv.resize(src, small, dsize, 0, 0, cv.INTER_LINEAR);
+                
+                // Process frame
+                processFrame(small);
+                
+                // Cleanup
+                src.delete();
+                small.delete();
+                
+                frameCount++;
+                
+                // Continue loop
+                requestAnimationFrame(processVideo);
+                
+            } catch (err) {
+                log(`Loop error: ${err.message}`, 'error');
+                console.error(err);
+            }
+        }
+                        
+        // ============================================
+        // EVENT HANDLERS
+        // ============================================
+        
+        startBtn.addEventListener('click', async () => {
+            if (await startWebcam()) {
+                isProcessing = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                recordBtn.disabled = false;
+                updateStatus('Processing in progress...', 'success');
+                log('Processing started', 'info');
+                
+                // Wait for video to be ready
+                setTimeout(() => {
+                    processVideo();
+                }, 500);
+            }
+        });
+                        
+        stopBtn.addEventListener('click', () => {
+            // Stop recording if active
+            if (isRecording) {
+                stopRecording();
+            }
+            
+            isProcessing = false;
+            stopWebcam();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            recordBtn.disabled = true;
+            updateStatus('Processing stopped', 'info');
+            log('Processing stopped', 'info');
+            
+            // Cleanup buffer
+            for (let levelBuffer of pyramidBuffer) {
+                for (let mat of levelBuffer) {
+                    mat.delete();
+                }
+            }
+            pyramidBuffer = [];
+            frameCount = 0;
+        });
+                        
+        recordBtn.addEventListener('click', () => {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+        
+        downloadBtn.addEventListener('click', () => {
+            downloadVideo();
+        });
+
+        switchCameraBtn.addEventListener('click', () => {
+            switchCamera();
+            // Update button text
+            switchCameraBtn.innerHTML = currentFacingMode === 'user' ? 
+                '🔄 Back Camera' : '🔄 Front Camera';
+        });
+                                                
+        document.getElementById('videoFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            log(`Loading video: ${file.name}`, 'info');
+            
+            // Stop webcam if active
+            if (isProcessing) {
+                stopBtn.click();
+            }
+            
+            // Load video file
+            const url = URL.createObjectURL(file);
+            video.src = url;
+            video.loop = true; // Loop video
+            
+            video.onloadedmetadata = () => {
+                const aspectRatio = video.videoWidth / video.videoHeight;
+                canvas.width = config.downsampleWidth;
+                canvas.height = Math.round(config.downsampleWidth / aspectRatio);
+                log(`Video loaded: ${video.videoWidth}x${video.videoHeight}`, 'success');
+                log(`Canvas output: ${canvas.width}x${canvas.height}`, 'info');
+                updateStatus('Video loaded. Click "Start" to process', 'success');
+                startBtn.disabled = false;
+            };
+        });
+                        
+        // ============================================
+        // UI CONTROLS - PARAMETER UPDATE
+        // ============================================
+        
+        document.getElementById('alphaSlider').addEventListener('input', (e) => {
+            config.alpha = parseFloat(e.target.value);
+            document.getElementById('alphaValue').textContent = config.alpha;
+            log(`Alpha updated: ${config.alpha}`, 'info');
+        });
+        
+        document.getElementById('freqMinSlider').addEventListener('input', (e) => {
+            config.freqMin = parseFloat(e.target.value);
+            document.getElementById('freqMinValue').textContent = config.freqMin.toFixed(1);
+            log(`Min Freq updated: ${config.freqMin} Hz`, 'info');
+        });
+                        
+        document.getElementById('freqMaxSlider').addEventListener('input', (e) => {
+            config.freqMax = parseFloat(e.target.value);
+            document.getElementById('freqMaxValue').textContent = config.freqMax.toFixed(1);
+            log(`Max Freq updated: ${config.freqMax} Hz`, 'info');
+        });
+        
+        document.getElementById('pyramidLevelsSlider').addEventListener('input', (e) => {
+            config.pyramidLevels = parseInt(e.target.value);
+            document.getElementById('pyramidLevelsValue').textContent = config.pyramidLevels;
+            log(`Pyramid levels: ${config.pyramidLevels}`, 'info');
+            
+            // Reset buffer when changing levels
+            if (pyramidBuffer.length > 0) {
+                for (let levelBuffer of pyramidBuffer) {
+                    for (let mat of levelBuffer) mat.delete();
+                }
+                pyramidBuffer = [];
+            }
+        });
+                        
+        document.getElementById('bufferLengthSlider').addEventListener('input', (e) => {
+            config.bufferLength = parseInt(e.target.value);
+            document.getElementById('bufferLengthValue').textContent = config.bufferLength;
+            log(`Buffer length: ${config.bufferLength}`, 'info');
+        });
+        
+        document.getElementById('exposureSlider').addEventListener('input', (e) => {
+            config.exposure = parseFloat(e.target.value);
+            document.getElementById('exposureValue').textContent = config.exposure.toFixed(1);
+            log(`Exposure updated: ${config.exposure}`, 'info');
+        });
+        
+        document.getElementById('blurSlider').addEventListener('input', (e) => {
+            config.blurSize = parseInt(e.target.value);
+            // Ensure it's odd
+            if (config.blurSize % 2 === 0) config.blurSize++;
+            document.getElementById('blurValue').textContent = config.blurSize;
+            log(`Blur size: ${config.blurSize}`, 'info');
+        });
+        
+        document.getElementById('attenuationSlider').addEventListener('input', (e) => {
+            config.attenuationThreshold = parseFloat(e.target.value);
+            document.getElementById('attenuationValue').textContent = config.attenuationThreshold.toFixed(2);
+            log(`Attenuation threshold: ${config.attenuationThreshold}`, 'info');
+        });
+                        
+        // ============================================
+        // GLOBAL ERROR HANDLING
+        // ============================================
+        
+        window.addEventListener('error', (e) => {
+            log(`Global error: ${e.message}`, 'error');
+        });
+        
+        log('Application initialized', 'info');
+    </script>
+</div>
+
+<footer style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px 20px; margin-top: 40px; text-align: center; border-radius: 15px 15px 0 0;">
+    <div style="max-width: 1800px; margin: 0 auto;">
+        <div style="font-size: 0.95em; margin-bottom: 10px;">
+            <strong>Eulerian Video Magnification</strong> - OpenCV.js Implementation
+        </div>
+        <div style="font-size: 0.85em; opacity: 0.9; margin-bottom: 15px;">
+            Based on the paper <a href="https://people.csail.mit.edu/mrub/evm/" target="_blank" style="color: white; text-decoration: underline;">"Eulerian Video Magnification for Revealing Subtle Changes in the World" (MIT CSAIL)</a>
+        </div>
+        <div style="font-size: 0.8em; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 15px;">
+            © 2026 <a href="https://mrmoddom.github.io/" target="_blank" style="color: white; text-decoration: underline;">MrMoDDoM</a> | 
+            <a href="https://people.csail.mit.edu/mrub/evm/" target="_blank" style="color: white; text-decoration: underline;">Original Paper</a> | 
+            License: MIT License
+        </div>
+        <div style="font-size: 0.75em; opacity: 0.7; margin-top: 10px;">
+            Created with OpenCV.js | No data is sent to external servers
+        </div>
+    </div>
+</footer>
+
+<script async src="https://docs.opencv.org/4.5.2/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+</body>
+</html>
