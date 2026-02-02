@@ -154,7 +154,7 @@ SOFTWARE.
 
 ## 👤 Author
 
-**Daniele Barattieri di San Pietro (MrMoDDoM)**
+**MrMoDDoM**
 
 - Website: [https://mrmoddom.github.io/](https://mrmoddom.github.io/)
 - GitHub: [@MrMoDDoM](https://github.com/MrMoDDoM)
